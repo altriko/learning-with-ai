@@ -11,6 +11,7 @@
 | 5 | Arrays & loops | Done |
 | 6 | Project setup | Done |
 | 7 | Array methods (filter, map) | Done |
+| 8 | How code is structured | Done |
 
 ---
 
@@ -535,6 +536,62 @@ const settledAmounts = payments
     .map(payment => payment.amount)
 console.log("3. Settled amounts:", settledAmounts)
 ```
+
+---
+
+## Lesson 8: How Code is Structured
+
+Real projects split code across folders. Each folder has one responsibility.
+
+### Typical structure
+
+```
+src/
+├── types/          ← type definitions only
+│   └── payment.ts
+├── utils/          ← small reusable functions
+│   └── calculate.ts
+├── services/       ← business logic
+│   └── paymentService.ts
+└── index.ts        ← entry point, ties everything together
+```
+
+### How files talk to each other
+
+```
+index.ts
+  → imports from paymentService.ts
+      → imports from calculate.ts (utils)
+      → imports from payment.ts (types)
+```
+
+Each file only knows about the files it directly imports.
+
+### import type vs import
+
+- `import { processPayments }` — for importing **values** (functions, variables)
+- `import type { Payment }` — for importing **types only**
+
+Types don't exist at runtime (TypeScript erases them). So ES modules can't find them with a regular `import`. Use `import type` for types.
+
+### Why importing a file runs its code
+
+When you write `import { x } from "./file.ts"`, Node runs the **entire file** first, then gives you what you asked for. So if a file has `console.log` at the bottom, it will run every time it's imported.
+
+**Rule:** files that export things should only contain definitions (types, functions). Never put running code (`console.log`, test data) in files meant to be imported. All running code lives in `index.ts` — the entry point.
+
+### Exercise (structured/)
+
+```
+structured/
+├── types/payment.ts        ← export type Payment
+├── utils/calculate.ts      ← export function calculateTotal
+├── services/paymentService.ts ← export function processPayments
+└── index.ts                ← import and run everything
+```
+
+`processPayments` filters settled payments, applies fee via `calculateTotal`, returns totals.
+Running `npx tsx structured/index.ts` outputs `[ 11000 ]`.
 
 ---
 
