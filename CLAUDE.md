@@ -23,11 +23,11 @@ I have no background on programming at all, however I realized that I need to le
 
 I will add more on how to learn this
 
-#Setup
+# Setup
 - please rewrite all of the learning module from the terminal prompt into a module.md so i can relook without the need to resume the claude terminal
 - everytime we moved to a new lesson, please resume to next lesson while record the previous lesson in the module.md files
 - please include the additional question that i have instead of just the initial prompt
-- please include the exercise question in the module.md so i can check what did i built
+- please include the exercise question and the answer in the module.md so i can check what did i built
 - please make it tidy by only have 1 module.md and 1 progress.md on each folder
 - always make the table of lesson list on top of the module.md for the progress
 - at the end of the module, create a progress.md files on the folder to save state the progress, and what ive done good / bad during the lesson

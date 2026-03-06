@@ -12,6 +12,8 @@
 | 6 | Project setup | Done |
 | 7 | Array methods (filter, map) | Done |
 | 8 | How code is structured | Done |
+| 9 | async/await & error handling | Done |
+| 10 | Reading real code (Xendit) | Done |
 
 ---
 
@@ -582,6 +584,14 @@ When you write `import { x } from "./file.ts"`, Node runs the **entire file** fi
 
 ### Exercise (structured/)
 
+Restructure your payment code into proper folders:
+
+1. Create `structured/types/payment.ts` — move the `Payment` type here with `export`
+2. Create `structured/utils/calculate.ts` — move `calculateTotal` here with `export`, import `Payment` type using `import type`
+3. Create `structured/services/paymentService.ts` — write `processPayments` that filters settled payments and applies fee via `calculateTotal`, `export` the function
+4. Create `structured/index.ts` — import `processPayments`, create test data, call and `console.log` the result
+5. Run with `npx tsx typescript/structured/index.ts`
+
 ```
 structured/
 ├── types/payment.ts        ← export type Payment
@@ -591,7 +601,199 @@ structured/
 ```
 
 `processPayments` filters settled payments, applies fee via `calculateTotal`, returns totals.
-Running `npx tsx structured/index.ts` outputs `[ 11000 ]`.
+Running `npx tsx typescript/structured/index.ts` outputs `[ 11000 ]`.
+
+---
+
+## Lesson 9: async/await & Error Handling
+
+Payment systems constantly wait for external APIs and handle failures. This is how that's done.
+
+### Why async/await exists
+
+Some operations take time (calling GoPay, Visa, bank APIs). Code doesn't wait by default — `async/await` tells it to wait.
+
+```typescript
+// Without await — moves on immediately, doesn't wait
+const result = callPaymentAPI()
+
+// With await — waits for the API to respond before continuing
+const result = await callPaymentAPI()
+```
+
+### async vs await
+
+| Keyword | Goes on | Means |
+|---|---|---|
+| `async` | the function declaration | "this function contains waiting" |
+| `await` | a specific line | "wait for this before moving on" |
+
+You can't use `await` without `async`. A function must be marked `async` before you can `await` inside it.
+
+```typescript
+async function processPayment(amount: number): Promise<string> {
+    const result = await callPaymentAPI(amount)  // wait here
+    return result
+}
+```
+
+- `Promise<string>` — return type for async functions. Means "will eventually return a string"
+
+### try/catch — handling failures
+
+```typescript
+async function processPayment(amount: number): Promise<string> {
+    try {
+        const result = await callPaymentAPI(amount)
+        return "Payment success: " + result
+    } catch (error) {
+        return "Payment failed: " + (error as Error).message
+    }
+}
+```
+
+- `try` — attempt this code
+- `catch` — if anything goes wrong, run this instead
+- `throw new Error("message")` — intentionally trigger an error, jumps to `catch` immediately
+
+### throw new Error
+
+`throw` sends an error to the `catch` block, skipping everything below it in `try`:
+
+```typescript
+try {
+    throw new Error("Payment declined")  // jumps to catch immediately
+    return "Payment success"             // this NEVER runs
+} catch (error) {
+    return "Payment declined"            // this runs instead
+}
+```
+
+### What is `new`?
+
+`new` creates an instance of a class (a blueprint):
+
+```typescript
+new Error("message")   // create an Error object
+new Promise(...)       // create a Promise object
+new Date()             // create a Date object
+```
+
+For `Error` specifically, `new` is optional — `Error("message")` also works. But keep `new` for consistency.
+
+### Faking an API delay
+
+```typescript
+await new Promise(resolve => setTimeout(resolve, 1000))
+```
+
+- `setTimeout(resolve, 1000)` — wait 1000ms (1 second), then signal "done"
+- `resolve` — the signal that means "I'm done, continue"
+- Used to simulate a slow API call in learning/testing
+
+You can remove `const result =` and just write `await new Promise(...)` — the return value is unused here.
+
+### Calling async functions
+
+`await` can only be used inside an `async` function. Wrap test calls in a `main()`:
+
+```typescript
+async function main() {
+    console.log(await simulatePayment(50000, true))
+    console.log(await simulatePayment(50000, false))
+}
+
+main()
+```
+
+### Additional Q: Warning vs Error
+
+- **Warning** (yellow underline) — code works but something looks off (e.g. unused variable)
+- **Error** (red underline) — code won't run at all
+
+Unused variables trigger a warning. Replace with `_` to signal intentionally ignored:
+```typescript
+const _ = await new Promise(...)  // convention for "I know this is unused"
+```
+
+### Exercise (lesson-9.ts)
+
+1. Write an `async` function called `simulatePayment` that takes `amount` (number) and `willSucceed` (boolean)
+2. Inside `try`, fake an API delay with: `await new Promise(resolve => setTimeout(resolve, 1000))`
+3. If `willSucceed` is false, throw an error: `throw new Error("Payment declined")`
+4. Return `"Payment success: " + amount` if it works
+5. In `catch`, return the error message
+6. Wrap test calls in an `async function main()` and call `main()` at the bottom
+
+```typescript
+async function simulatePayment(amount: number, willSucceed: boolean): Promise<string> {
+    try {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        if (!willSucceed) throw new Error("Payment declined")
+        return "Payment success: " + amount
+    } catch (error) {
+        return "Payment failed: " + (error as Error).message
+    }
+}
+
+async function main() {
+    console.log(await simulatePayment(50000, true))   // Payment success: 50000
+    console.log(await simulatePayment(50000, false))  // Payment failed: Payment declined
+}
+
+main()
+```
+
+---
+
+## Lesson 10: Reading Real Code (Xendit Demo Store)
+
+Source: `server/integrations/payment-link.ts` from https://github.com/xendit/demo-store
+
+### What each part maps to
+
+| Code in real file | Lesson |
+|---|---|
+| `import config from "../config"` | Lesson 8 — imports |
+| `const POST_SESSION_URL = "..."` | Lesson 1 — variables |
+| `async (data: PostCheckoutPayload): Promise<PaymentLinkSession>` | Lesson 9 — async, Lesson 4 — types |
+| `for (const item of data.cart)` | Lesson 5 — loops |
+| `.find(product => product.id === item.id)` | Lesson 7 — array methods |
+| `amount += priceInCurrency * item.quantity` | Lesson 5 — accumulating totals |
+| `if (product) { ... }` | Lesson 3 — conditions |
+| `await fetch(POST_SESSION_URL, { ... })` | Lesson 9 — async/await |
+| `throw new Error("Failed to create session")` | Lesson 9 — error handling |
+| `? new URL(...) : undefined` | Lesson 4 — ternary operator |
+
+### New concepts seen in real code
+
+**`.find()`** — like `.filter()` but returns just one item instead of an array:
+```typescript
+database.products.find(product => product.id === item.id)
+// returns the first product that matches, or undefined
+```
+
+**Regex** — a pattern for validating text format. The `/^(https:\/\/)...$/i` validates that a URL starts with `https://`. You don't need to write these from scratch — just know what they do when you see them.
+
+**Optional chaining `?.`** — safely access a property that might be `undefined`:
+```typescript
+successReturnUrl?.searchParams.append("flow", data.flow)
+// same as: if (successReturnUrl !== undefined) { successReturnUrl.searchParams.append(...) }
+```
+
+**Query parameters** — extra data appended to a URL after `?`, separated by `&`:
+```
+https://store.com/success?flow=pay&integration=payment_link
+```
+Each parameter answers a different question. `flow` = what the user did, `integration` = how it was built.
+
+### Additional Q: Why two `.append()` calls for one URL?
+
+Both parameters travel in the same URL — they're not replacing each other. After both appends:
+```
+https://store.com/success?flow=pay&integration=payment_link
+```
+The success page needs both to know what to display and for analytics/debugging tracking.
 
 ---
 
