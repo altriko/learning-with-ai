@@ -8,6 +8,9 @@
 | 2 | Functions | Done |
 | 3 | Conditions (if/else, switch) | Done |
 | 4 | Structs | Done |
+| 5 | Slices & loops | Done |
+| 6 | Error handling | Done |
+| 7 | HTTP & APIs | Done |
 
 ---
 
@@ -413,5 +416,344 @@ func describePayment(p Payment) string {
 func main() {
     fmt.Println(describePayment(pymts1))
     fmt.Println(describePayment(pymts2))
+}
+```
+
+---
+
+## Lesson 5: Slices & Loops
+
+### Slices — Go's version of arrays
+
+```go
+payments := []Payment{
+    {ReferenceId: "txn1", Amount: 10000, PaymentMethod: "OVO", IsSettled: true},
+    {ReferenceId: "txn2", Amount: 20000, PaymentMethod: "DANA", IsSettled: false},
+}
+```
+
+- `[]Payment` = "slice of Payment" (same as `Payment[]` in TypeScript)
+
+### for range — Go's version of for...of
+
+```go
+for _, payment := range payments {
+    fmt.Println(payment.ReferenceId)
+}
+```
+
+- `range payments` — loop through the slice
+- `payment` — current item each iteration
+- `_` — the index (0, 1, 2...), ignored with `_`
+- Use `i` instead of `_` if you need the index: `for i, payment := range payments`
+
+### Accumulating a total
+
+```go
+var total int
+for _, pymt := range p {
+    total += pymt.Amount
+}
+```
+
+### Important: name your parameters
+
+```go
+// Wrong — parameter has no name, can't use it
+func getTotalAmount([]Payment) int {
+    for _, pymt := range payments {  // uses global variable instead!
+
+// Correct — named parameter, use it inside the function
+func getTotalAmount(p []Payment) int {
+    for _, pymt := range p {         // uses what was passed in
+```
+
+The connection: `payments` (passed in `main`) → received as `p` → looped with `range p`
+
+### Additional Q: What does `p` in `p []Payment` mean?
+
+`p` is just the parameter name — you choose it. Go convention is to use short names:
+
+```go
+func getTotalAmount(p []Payment) int { }        // p = short for payments
+func getTotalAmount(payments []Payment) int { } // also fine, more descriptive
+func getTotalAmount(data []Payment) int { }     // also fine
+```
+
+The pattern is always: **name first, type second** — same as TypeScript but without `:`
+
+```go
+// Go
+func myFunc(p []Payment) int { }
+
+// TypeScript equivalent
+function myFunc(p: Payment[]): number { }
+```
+
+Always name your parameters — without a name you can't reference the input inside the function.
+
+### Exercise (lesson-5.go)
+
+1. Define `Payment` struct
+2. Create a slice of 3 payments at top level
+3. Write `getTotalAmount(p []Payment) int` that sums all amounts
+4. Call and print in `main()`
+
+```go
+package main
+
+import "fmt"
+
+type Payment struct {
+    ReferenceId   string
+    Amount        int
+    PaymentMethod string
+    IsSettled     bool
+}
+
+var payments = []Payment{
+    {ReferenceId: "txn1", Amount: 10000, PaymentMethod: "OVO", IsSettled: true},
+    {ReferenceId: "txn2", Amount: 20000, PaymentMethod: "DANA", IsSettled: false},
+    {ReferenceId: "txn3", Amount: 30000, PaymentMethod: "QRIS", IsSettled: true},
+}
+
+func getTotalAmount(p []Payment) int {
+    var total int
+    for _, pymt := range p {
+        total += pymt.Amount
+    }
+    return total
+}
+
+func main() {
+    fmt.Println(getTotalAmount(payments)) // prints: 60000
+}
+```
+
+---
+
+## Lesson 6: Error Handling
+
+Go handles errors differently from TypeScript — errors are **return values**, not exceptions.
+
+### TypeScript vs Go
+
+```typescript
+// TypeScript — try/catch
+try {
+    const result = processPayment(50000)
+} catch (error) {
+    console.log("failed:", error)
+}
+```
+
+```go
+// Go — error as return value
+result, err := processPayment(50000)
+if err != nil {
+    fmt.Println("failed:", err)
+}
+```
+
+### Returning errors from a function
+
+```go
+import "errors"
+
+func processPayment(amount int) (bool, error) {
+    if amount <= 0 {
+        return false, errors.New("amount must be greater than 0")
+    }
+    return true, nil   // nil = no error, all good
+}
+```
+
+- `errors.New("message")` — creates an error
+- `return true, nil` — success, no error
+- `return false, errors.New(...)` — failure with reason
+
+### nil = no error
+
+- `nil` = "nothing" / "no value" — for errors it means "no error occurred"
+- Always check `if err != nil` after calling a function that returns an error
+
+### Multiple return types
+
+```go
+func myFunc() (bool, error) { }    // two returns — needs parentheses
+func myFunc() string { }           // one return — no parentheses needed
+```
+
+The inputs and outputs:
+```go
+func validatePayment(amount int, method string) (bool, error)
+//                  |________________________| |___________|
+//                          inputs                outputs
+```
+
+### Capturing return values
+
+```go
+isValid, err := validatePayment(10000, "OVO")  // capture both
+_, err := validatePayment(10000, "OVO")        // ignore bool with _
+```
+
+Go forces you to receive all return values — use `_` to intentionally ignore one.
+
+### First call uses :=, subsequent calls use =
+
+```go
+isValid, err := validatePayment(1, "OVO")      // first — declare with :=
+isValid, err = validatePayment(10000, "OVO")   // next — already declared, use =
+```
+
+### Writing a reusable test helper
+
+Instead of repeating `if err != nil` for every test, write a helper function:
+
+```go
+func runTest(testname string, amount int, method string) {
+    isValid, err := validatePayment(amount, method)
+    if err != nil {
+        fmt.Println(testname, "failed:", err)
+    } else {
+        fmt.Println(testname, "success:", isValid)
+    }
+}
+
+func main() {
+    runTest("Test 1", 1, "OVO")        // amount too low
+    runTest("Test 2", 10000, "")       // method missing
+    runTest("Test 3", 10000000, "OVO") // success
+}
+```
+
+### Exercise (lesson-6.go)
+
+Write `validatePayment(amount int, method string) (bool, error)` that validates amount >= 10000 and method is not empty. Write a `runTest` helper and call 3 test cases.
+
+```go
+package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+func validatePayment(amount int, paymentMethod string) (bool, error) {
+    if amount < 10000 {
+        return false, errors.New("amount too low")
+    } else if paymentMethod == "" {
+        return false, errors.New("payment method required")
+    }
+    return true, nil
+}
+
+func runTest(testname string, amount int, method string) {
+    isValid, err := validatePayment(amount, method)
+    if err != nil {
+        fmt.Println(testname, "failed:", err)
+    } else {
+        fmt.Println(testname, "success:", isValid)
+    }
+}
+
+func main() {
+    runTest("Test 1", 1, "OVO")
+    runTest("Test 2", 10000, "")
+    runTest("Test 3", 10000000, "OVO")
+}
+```
+
+---
+
+## Lesson 7: HTTP & APIs
+
+Go has a built-in `net/http` package — no need to install anything.
+
+### Making a GET request
+
+```go
+resp, err := http.Get("https://api.example.com/payments")
+if err != nil {
+    return "", err
+}
+defer resp.Body.Close()   // always close the connection when done
+```
+
+- `http.Get` — sends a GET request, returns response + error
+- `defer resp.Body.Close()` — schedules cleanup when function ends, runs even if something goes wrong
+
+### Reading the response body
+
+`resp.Body` is a stream of raw bytes, not text. Use `io.ReadAll` to collect it:
+
+```go
+body, err := io.ReadAll(resp.Body)
+return string(body), nil   // convert bytes to readable string
+```
+
+### Why defer?
+
+`defer` runs the statement at the **end of the function**, no matter what happens:
+```go
+defer resp.Body.Close()  // closes connection when function exits
+```
+It's cleanup code — ensures the HTTP connection is always released.
+
+### Always validate inputs before making HTTP calls
+
+```go
+if referenceId == "" {
+    return "", errors.New("referenceId is required")
+}
+```
+
+Check params first, then make the network call. Saves unnecessary requests.
+
+### Error messages from HTTP failures
+
+```
+dial tcp 34.216.117.25:443: i/o timeout
+```
+- `dial tcp` — Go tried to open a network connection
+- `34.216.117.25:443` — the server IP and port
+- `i/o timeout` — server never responded
+
+This is the error you'll see when payment provider APIs are down or unreachable. Your `if err != nil` catches it automatically.
+
+### Additional Q: Should you print errors inside the function?
+
+No — just `return "", err`. Let the caller decide how to handle/print it. Printing inside the function AND returning causes the error to be logged twice.
+
+### Exercise (lesson-7.go)
+
+Write `fetchPaymentStatus(endpoint string, referenceId string) (string, error)` that validates input, makes a GET request, reads and returns the response body.
+
+```go
+package main
+
+import (
+    "errors"
+    "fmt"
+    "io"
+    "net/http"
+)
+
+func fetchPaymentStatus(endpoint string, referenceId string) (string, error) {
+    if referenceId == "" {
+        return "", errors.New("referenceId is required")
+    }
+    resp, err := http.Get(endpoint + referenceId) // send GET request
+    if err != nil {
+        return "", err // stop, return blank + error
+    }
+    defer resp.Body.Close()            // close connection when done
+    body, err := io.ReadAll(resp.Body) // read raw bytes into body
+    return string(body), nil           // convert to string, return with nil error
+}
+
+func main() {
+    fmt.Println(fetchPaymentStatus("https://httpbin.org/get?referenceId=", "test"))
 }
 ```
